@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     radius_nas_ip: str = "10.0.0.1"
     radius_secret: str = "radius-secret"
     radius_coa_port: int = 3799
+
+    # pfSense API config (si AUTH_METHOD=pfsense)
+    pfsense_host: str = "https://192.168.1.1"
+    pfsense_api_key: str = ""
+    pfsense_api_secret: str = ""
+    pfsense_verify_ssl: bool = False
+    pfsense_alias_name: str = "captive_portal_allowed"
     
     # Interface réseau pour ARP lookup
     network_interface: str = "eth0"

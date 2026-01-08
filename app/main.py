@@ -1,6 +1,8 @@
 # app/main.py
 import subprocess
 import logging
+import sys
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -12,8 +14,12 @@ from authlib.integrations.starlette_client import OAuth
 import redis.asyncio as redis
 import httpx
 
+# Ajouter le répertoire parent au path pour importer scripts
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from config.settings import settings
 from config.theme import theme, get_css_variables
+from scripts.pfsense_api import PfSenseAPI, init_pfsense_client, get_pfsense_client
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -47,13 +53,30 @@ oauth.register(
 async def startup():
     global redis_client
     redis_client = redis.from_url(settings.redis_url, decode_responses=True)
-    
+
     # Monter les fichiers statiques
-    import os
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
     if os.path.exists(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    
+
+    # Initialiser le client pfSense si configuré
+    if settings.auth_method == "pfsense":
+        if settings.pfsense_api_key and settings.pfsense_api_secret:
+            client = init_pfsense_client(
+                host=settings.pfsense_host,
+                api_key=settings.pfsense_api_key,
+                api_secret=settings.pfsense_api_secret,
+                verify_ssl=settings.pfsense_verify_ssl
+            )
+            # Tester la connexion
+            if await client.test_connection():
+                # Créer l'alias si nécessaire
+                await client.create_alias_if_not_exists(settings.pfsense_alias_name)
+            else:
+                logger.error("Impossible de se connecter à pfSense API!")
+        else:
+            logger.error("pfSense configuré mais API key/secret manquants!")
+
     logger.info(f"Portail captif démarré - Méthode auth: {settings.auth_method}")
 
 
@@ -158,11 +181,11 @@ async def authorize_mac_radius_coa(mac: str, username: str) -> bool:
     try:
         from pyrad.client import Client
         from pyrad import dictionary, packet
-        
+
         # Charger le dictionnaire RADIUS
         dict_path = "/etc/freeradius/3.0/dictionary"
         radius_dict = dictionary.Dictionary(dict_path)
-        
+
         # Créer le client CoA
         client = Client(
             server=settings.radius_nas_ip,
@@ -170,61 +193,131 @@ async def authorize_mac_radius_coa(mac: str, username: str) -> bool:
             dict=radius_dict
         )
         client.timeout = 5
-        
+
         # Créer le paquet CoA
         req = client.CreateCoAPacket()
         req["User-Name"] = username
         req["Calling-Station-Id"] = mac.replace(":", "-")
-        
+
         # Envoyer
         reply = client.SendPacket(req)
-        
+
         if reply.code == packet.CoAACK:
             logger.info(f"CoA ACK reçu pour {mac} ({username})")
             return True
         else:
             logger.warning(f"CoA NAK pour {mac}")
             return False
-            
+
     except Exception as e:
         logger.error(f"Erreur RADIUS CoA: {e}")
         return False
 
 
-async def authorize_mac(mac: str, username: str) -> bool:
+async def authorize_ip_pfsense(ip: str, username: str) -> bool:
+    """Autorise une IP via l'API pfSense."""
+    try:
+        client = get_pfsense_client()
+        if not client:
+            logger.error("Client pfSense non initialisé")
+            return False
+
+        success = await client.add_ip_to_alias(
+            ip=ip,
+            username=username,
+            alias_name=settings.pfsense_alias_name
+        )
+        if success:
+            logger.info(f"IP {ip} autorisée (pfSense) pour {username}")
+        return success
+    except Exception as e:
+        logger.error(f"Erreur pfSense authorize: {e}")
+        return False
+
+
+async def revoke_ip_pfsense(ip: str) -> bool:
+    """Révoque une IP via l'API pfSense."""
+    try:
+        client = get_pfsense_client()
+        if not client:
+            logger.error("Client pfSense non initialisé")
+            return False
+
+        success = await client.remove_ip_from_alias(
+            ip=ip,
+            alias_name=settings.pfsense_alias_name
+        )
+        if success:
+            logger.info(f"IP {ip} révoquée (pfSense)")
+        return success
+    except Exception as e:
+        logger.error(f"Erreur pfSense revoke: {e}")
+        return False
+
+
+async def authorize_mac(mac: str, username: str, client_ip: str = None) -> bool:
     """Autorise une MAC selon la méthode configurée."""
-    # Stocker dans Redis avec TTL
+    # Stocker dans Redis avec TTL (inclure l'IP pour pfSense)
+    session_data = f"{username}:{datetime.utcnow().isoformat()}:{client_ip or ''}"
     await redis_client.setex(
         f"session:{mac}",
         settings.session_timeout,
-        f"{username}:{datetime.utcnow().isoformat()}"
+        session_data
     )
+
+    # Si on a une IP, stocker aussi le mapping IP -> MAC pour la révocation
+    if client_ip:
+        await redis_client.setex(
+            f"ip_session:{client_ip}",
+            settings.session_timeout,
+            mac
+        )
 
     # Mode dev : on skip l'autorisation réseau réelle
     if settings.dev_mode:
-        logger.info(f"[DEV MODE] Autorisation simulée pour {mac} ({username})")
+        logger.info(f"[DEV MODE] Autorisation simulée pour {mac} / {client_ip} ({username})")
         return True
 
     if settings.auth_method == "nftables":
         return await authorize_mac_nftables(mac, username)
     elif settings.auth_method == "radius_coa":
         return await authorize_mac_radius_coa(mac, username)
+    elif settings.auth_method == "pfsense":
+        if not client_ip:
+            logger.error("pfSense requiert l'IP du client")
+            return False
+        return await authorize_ip_pfsense(client_ip, username)
     else:
         logger.error(f"Méthode d'auth inconnue: {settings.auth_method}")
         return False
 
 
-async def revoke_mac(mac: str) -> bool:
+async def revoke_mac(mac: str, client_ip: str = None) -> bool:
     """Révoque une MAC."""
+    # Récupérer l'IP depuis Redis si non fournie
+    if not client_ip:
+        session_data = await redis_client.get(f"session:{mac}")
+        if session_data:
+            parts = session_data.split(":")
+            if len(parts) >= 3:
+                client_ip = parts[2] if parts[2] else None
+
     await redis_client.delete(f"session:{mac}")
+    if client_ip:
+        await redis_client.delete(f"ip_session:{client_ip}")
 
     # Mode dev : on skip la révocation réseau réelle
     if settings.dev_mode:
-        logger.info(f"[DEV MODE] Révocation simulée pour {mac}")
+        logger.info(f"[DEV MODE] Révocation simulée pour {mac} / {client_ip}")
         return True
 
     if settings.auth_method == "nftables":
         return await revoke_mac_nftables(mac)
+    elif settings.auth_method == "pfsense":
+        if client_ip:
+            return await revoke_ip_pfsense(client_ip)
+        logger.warning("Révocation pfSense sans IP - ignorée")
+        return True
     # CoA disconnect serait ici pour RADIUS
     return True
 
@@ -291,17 +384,18 @@ async def callback(request: Request):
         username = userinfo.get("preferred_username") or userinfo.get("sub")
         email = userinfo.get("email", "")
         
-        # Récupérer MAC depuis la session
+        # Récupérer MAC et IP depuis la session
         mac = request.session.get("client_mac")
-        
+        client_ip = request.session.get("client_ip")
+
         if not mac:
             raise HTTPException(
                 status_code=400,
                 detail="Session expirée. Reconnecte-toi au WiFi."
             )
-        
+
         # Autoriser l'accès réseau
-        success = await authorize_mac(mac, username)
+        success = await authorize_mac(mac, username, client_ip=client_ip)
         
         if not success:
             raise HTTPException(
@@ -314,6 +408,7 @@ async def callback(request: Request):
             "username": username,
             "email": email,
             "mac": mac,
+            "ip": client_ip,
             "login_time": datetime.utcnow().isoformat()
         }
         
@@ -348,11 +443,11 @@ async def success(request: Request):
 async def logout(request: Request):
     """Déconnexion et révocation de l'accès."""
     user = request.session.get("user")
-    
+
     if user and user.get("mac"):
-        await revoke_mac(user["mac"])
-        logger.info(f"Logout: {user['username']} ({user['mac']})")
-    
+        await revoke_mac(user["mac"], client_ip=user.get("ip"))
+        logger.info(f"Logout: {user['username']} ({user['mac']} / {user.get('ip')})")
+
     request.session.clear()
     return RedirectResponse(url="/")
 
