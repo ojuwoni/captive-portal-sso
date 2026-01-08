@@ -1,0 +1,32 @@
+# config/captive-sync.service
+# Copier vers /etc/systemd/system/captive-sync.service
+# sudo systemctl enable captive-sync
+# sudo systemctl start captive-sync
+
+[Unit]
+Description=Captive Portal Session Sync
+After=network.target redis.service captive-portal.service
+Wants=captive-portal.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/captive-portal
+
+# Environnement
+EnvironmentFile=/opt/captive-portal/.env
+
+# Démarrage
+ExecStart=/opt/captive-portal/venv/bin/python scripts/sync_sessions.py --daemon --interval 300
+
+# Redémarrage automatique
+Restart=always
+RestartSec=30
+
+# Capabilities pour nftables
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

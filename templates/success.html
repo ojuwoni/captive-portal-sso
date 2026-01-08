@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="{{ theme.lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion réussie - {{ theme.company_name }}</title>
+    <link rel="icon" href="{{ theme.favicon_url }}" type="image/x-icon">
+    <style>
+        {{ css_variables | safe }}
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: var(--font-family);
+            {% if theme.background_type == 'gradient' %}
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            {% elif theme.background_type == 'image' %}
+            background: url('{{ theme.background_image_url }}') center/cover no-repeat fixed;
+            {% else %}
+            background: var(--bg-gradient-start);
+            {% endif %}
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            max-width: 420px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+        
+        .success-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+            stroke-width: 3;
+        }
+        
+        h1 {
+            color: var(--text-primary);
+            font-size: var(--font-size-large);
+            margin-bottom: 8px;
+        }
+        
+        .username {
+            color: var(--primary-hover);
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 24px;
+        }
+        
+        .info {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-hover);
+            color: white;
+            border: none;
+            border-radius: var(--btn-radius);
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 4px;
+        }
+        
+        .btn:hover { background: var(--primary-color); }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--text-secondary);
+        }
+        
+        .btn-secondary:hover { background: #cbd5e0; }
+        
+        .countdown {
+            margin-top: 24px;
+            font-size: var(--font-size-small);
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        
+        <h1>Connexion réussie</h1>
+        <p class="username">{{ username }}</p>
+        
+        <div class="info">
+            <p>{{ theme.success_message }}</p>
+            <p>Ta session est valide pendant {{ session_timeout }} heures.</p>
+        </div>
+        
+        <a href="{{ redirect_url }}" class="btn">Continuer la navigation</a>
+        <a href="/logout" class="btn btn-secondary">Se déconnecter</a>
+        
+        <p class="countdown">Redirection automatique dans <span id="timer">5</span>s...</p>
+    </div>
+    
+    <script>
+        let seconds = 5;
+        const timer = document.getElementById('timer');
+        const interval = setInterval(() => {
+            seconds--;
+            timer.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                window.location.href = "{{ redirect_url }}";
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

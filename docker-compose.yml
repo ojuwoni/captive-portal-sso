@@ -1,0 +1,69 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  portal:
+    build: .
+    container_name: captive-portal
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - KEYCLOAK_URL=https://keycloak.university.edu
+      - KEYCLOAK_REALM=university
+      - KEYCLOAK_CLIENT_ID=captive-portal
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - AUTH_METHOD=nftables
+      - CALLBACK_URL=http://portal.university.edu/callback
+      - SESSION_TIMEOUT=28800
+    volumes:
+      - ./templates:/opt/captive-portal/templates:ro
+      - ./config:/opt/captive-portal/config:ro
+    depends_on:
+      - redis
+    networks:
+      - portal-net
+    # Nécessaire pour nftables
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+
+  redis:
+    image: redis:7-alpine
+    container_name: captive-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - portal-net
+    command: redis-server --appendonly yes
+
+  sync:
+    build: .
+    container_name: captive-sync
+    restart: unless-stopped
+    command: python scripts/sync_sessions.py --daemon --interval 300
+    environment:
+      - KEYCLOAK_URL=https://keycloak.university.edu
+      - KEYCLOAK_REALM=university
+      - KEYCLOAK_ADMIN_CLIENT_ID=admin-cli
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_SECRET}
+      - REDIS_URL=redis://redis:6379/0
+      - AUTH_METHOD=nftables
+    depends_on:
+      - redis
+      - portal
+    networks:
+      - portal-net
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+
+volumes:
+  redis-data:
+
+networks:
+  portal-net:
+    driver: bridge

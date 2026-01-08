@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="{{ theme.lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ theme.portal_title }} - {{ theme.company_name }}</title>
+    <link rel="icon" href="{{ theme.favicon_url }}" type="image/x-icon">
+    <style>
+        {{ css_variables | safe }}
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size-base);
+            {% if theme.background_type == 'gradient' %}
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            {% elif theme.background_type == 'image' %}
+            background: url('{{ theme.background_image_url }}') center/cover no-repeat fixed;
+            {% else %}
+            background: var(--bg-gradient-start);
+            {% endif %}
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            max-width: 420px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo img {
+            width: {{ theme.logo_width }};
+            height: {{ theme.logo_height }};
+            margin-bottom: 16px;
+        }
+        
+        .logo h1 {
+            color: var(--primary-color);
+            font-size: var(--font-size-large);
+            font-weight: 600;
+        }
+        
+        .logo p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .info-box {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+        }
+        
+        .info-box strong { color: var(--text-primary); }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: var(--btn-padding);
+            background: var(--primary-hover);
+            color: white;
+            border: none;
+            border-radius: var(--btn-radius);
+            font-size: var(--font-size-base);
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover { background: var(--primary-color); }
+        
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: var(--font-size-small);
+            color: var(--text-muted);
+        }
+        
+        .footer a {
+            color: var(--primary-hover);
+            text-decoration: none;
+        }
+        
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            {% if theme.logo_url %}
+            <img src="{{ theme.logo_url }}" alt="{{ theme.company_name }}">
+            {% endif %}
+            <h1>{{ theme.company_name }}</h1>
+            <p>{{ theme.portal_subtitle }}</p>
+        </div>
+        
+        <div class="info-box">
+            <p><strong>IP:</strong> {{ client_ip }}</p>
+            <p><strong>MAC:</strong> {{ mac }}</p>
+        </div>
+        
+        <a href="/login" class="btn">{{ theme.login_button_text }}</a>
+        
+        <div class="footer">
+            <p>{{ theme.footer_text }}</p>
+            {% if theme.terms_url %}
+            <p><a href="{{ theme.terms_url }}" target="_blank">Conditions d'utilisation</a></p>
+            {% endif %}
+            {% if theme.help_url %}
+            <p><a href="{{ theme.help_url }}" target="_blank">Aide</a></p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

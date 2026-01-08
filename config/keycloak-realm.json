@@ -1,0 +1,106 @@
+{
+  "realm": "dev",
+  "enabled": true,
+  "displayName": "Portail Captif Dev",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 28800,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 86400,
+  "clients": [
+    {
+      "clientId": "captive-portal",
+      "name": "Portail Captif WiFi",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-change-in-prod",
+      "redirectUris": [
+        "http://localhost:8000/*",
+        "http://127.0.0.1:8000/*",
+        "http://192.168.0.11:8000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://192.168.0.11:8000"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8000/*##http://192.168.0.11:8000/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "admin-cli",
+      "name": "Admin CLI",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "admin-cli-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "email": "test@example.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpass",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-dev"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-dev"]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Regular user"
+      },
+      {
+        "name": "admin",
+        "description": "Administrator"
+      }
+    ]
+  },
+  "defaultRoles": ["user"]
+}

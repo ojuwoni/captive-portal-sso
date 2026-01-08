@@ -1,0 +1,72 @@
+# docker-compose.dev.yml
+# Environnement de développement complet avec Keycloak inclus
+# Usage: docker-compose -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: captive-keycloak
+    restart: unless-stopped
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HTTP_PORT=8080
+      - KC_HEALTH_ENABLED=true
+    command: start-dev --import-realm
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/keycloak-realm.json:/opt/keycloak/data/import/realm.json
+    user: root
+    networks:
+      - portal-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  portal:
+    build: .
+    container_name: captive-portal
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    environment:
+      # KEYCLOAK_URL vient du .env.dev (IP hôte pour le navigateur)
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./templates:/opt/captive-portal/templates:ro
+      - ./static:/opt/captive-portal/static:ro
+      - ./config:/opt/captive-portal/config:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - portal-net
+    cap_add:
+      - NET_ADMIN
+
+  redis:
+    image: redis:7-alpine
+    container_name: captive-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - portal-net
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:
+  keycloak-data:
+
+networks:
+  portal-net:
+    driver: bridge

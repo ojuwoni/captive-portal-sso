@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="{{ theme.lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déjà connecté - {{ theme.company_name }}</title>
+    <link rel="icon" href="{{ theme.favicon_url }}" type="image/x-icon">
+    <style>
+        {{ css_variables | safe }}
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: var(--font-family);
+            {% if theme.background_type == 'gradient' %}
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            {% elif theme.background_type == 'image' %}
+            background: url('{{ theme.background_image_url }}') center/cover no-repeat fixed;
+            {% else %}
+            background: var(--bg-gradient-start);
+            {% endif %}
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            max-width: 420px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-hover);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+        
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        h1 {
+            color: var(--text-primary);
+            font-size: var(--font-size-large);
+            margin-bottom: 16px;
+        }
+        
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+        
+        .username {
+            color: var(--primary-hover);
+            font-weight: 600;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: var(--btn-radius);
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .btn:hover { background: #cbd5e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01M9.172 11.172a4 4 0 015.656 0M5.636 7.636a8 8 0 0112.728 0" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        
+        <h1>Déjà connecté</h1>
+        <p>Tu es connecté en tant que <span class="username">{{ username }}</span></p>
+        
+        <a href="/logout" class="btn">Se déconnecter</a>
+    </div>
+</body>
+</html>
